@@ -13,5 +13,3 @@ typedef struct {
   int8_t lastPacketRssi;
   uint8_t lastPacketLQI;
 } neighboringNodeRfInfo_t;//Portage Metrics
-
-void initCallback(void);

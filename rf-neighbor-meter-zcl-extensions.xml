@@ -118,20 +118,29 @@
 
     <command source="server" code="0x00" 
       name="getEntryResponse" 
-      optional="true">
+      optional="false">
       <description>
         Command that requests one entry to be sent back .
       </description>
       <arg name="neighborStruct" type="INT8U" array="true"/>
     </command>
 
-	<command source="server" code="0x01" 
+    <command source="server" code="0x01" 
       name="entryUpdate" 
-      optional="true">
+      optional="false">
       <description>
         Command that requests one entry to be sent back .
       </description>
       <arg name="neighborStruct" type="INT8U" array="true"/>
+    </command>
+
+    <command source="server" code="0x02" 
+      name="getAllEntriesResponse" 
+      optional="false">
+      <description>
+        Command that requests one entry to be sent back .
+      </description>
+      <arg name="neighborStructArray" type="INT8U" array="true"/>
     </command>
 
   </cluster>  
