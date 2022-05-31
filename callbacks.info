@@ -1,14 +1,26 @@
-/** @brief Status
- *
- * This callback is fired when the Update Link Key exchange process is updated
- * with a status from the stack. Implementations will know that the Update TC
- * Link Key plugin has completed its link key request when the keyStatus
- * parameter is EMBER_VERIFY_LINK_KEY_SUCCESS.
- *
- * @param keyStatus An ::EmberKeyStatus value describing the success or failure
- * of the key exchange process. Ver.: always
- */
-void emberAfPluginUpdateTcLinkKeyStatusCallback(EmberKeyStatus keyStatus)
+/** @brief Incoming Packet Filter
+ *
+ * NOTE: REQUIRES INCLUDING THE PACKET-HANDOFF PLUGIN. This is called by the
+ * Packet Handoff plugin when the stack receives a packet from one of the
+ * protocol layers specified in ::EmberZigbeePacketType. The packetType argument
+ * is one of the values of the ::EmberZigbeePacketType enum. If the stack
+ * receives an 802.15.4 MAC beacon, it will call this function with the
+ * packetType argument set to ::EMBER_ZIGBEE_PACKET_TYPE_BEACON. The
+ * implementation of this callback may alter the data contained in packetData,
+ * modify options and flags in the auxillary data, or consume the packet itself,
+ * either sending the message, or discarding it as it sees fit.
+ *
+ * @param packetType the type of packet and associated protocol layer  Ver.:
+ * always
+ * @param packetData flat buffer containing the packet data associated with the
+ * packet type  Ver.: always
+ * @param size_p a pointer containing the size value of the packet  Ver.: always
+ * @param data auxillary data included with the packet  Ver.: always
+ */
+EmberPacketAction emberAfPluginRfNeighborTableIncomingPacketFilterCallback(EmberZigbeePacketType packetType,
+                                                      int8u* packetData,
+                                                      int8u* size_p,
+                                                      void* data)
 {
-  return;
+  return EMBER_ACCEPT_PACKET;
 }

@@ -6,9 +6,11 @@
  
  ******************************************************************************/
 
+#include "app/framework/include/af.h"
+
 #include "rf-neighbor-meter.h"
 
-void refreshEui64TableEventHandler(void);
+void emberAfPluginRfNeighborMeterRefreshEui64TableEventHandler(void);
 
 static void     sendEntryResponse                 (EmberEUI64 eui);
 static void     sendEntryUpdate                   (uint8_t entryIndex);
@@ -16,163 +18,176 @@ static uint8_t  getNeighborRfEntryIndexByShortID  (EmberNodeId sender);
 static uint8_t  getNeighborRfEntryIndexByEUI64    (EmberEUI64 senderEui);
 static uint8_t  getNeighborRfEmptyEntryIndex      (void);
 
-neighboringNodeRfInfo_t neighboringNodesRfTable[NEGIGHBORING_RF_TABLE_SIZE];//Portage Metrics
-static uint8_t          neighborEntryToRefresh;
+extern EmberNodeId emCurrentSender;
 
-void initCallback(void)
+EmberEventControl       emberAfPluginRfNeighborMeterRefreshEui64TableEventControl;
+neighboringNodeRfInfo_t neighboringNodesRfTable[EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE];//Portage Metrics
+static uint8_t          neighborEntryToRefresh;
+static const            EmberEUI64 emberAfNullEui64 = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static uint8_t          endpointId = 1;
+
+void emberAfPluginRfNeighborTableInitCallback(void)
 {
   uint8_t var = 0;
+  uint8_t epIndex = 0;
 
-  for (var = 0; var < NEGIGHBORING_RF_TABLE_SIZE; ++var) {
-	  neighboringNodesRfTable[var].nodeShortId = EMBER_NULL_NODE_ID;
+  for(epIndex = 0; epIndex < emberAfEndpointCount(); epIndex++)
+  {
+    if(emberAfContainsServer(epIndex, ZCL_RF_NEIGHBOR_METER_CLUSTER_ID))
+    {
+      endpointId = epIndex;
+      emberAfCorePrintln("Found RF Meter Endpoint %d", endpointId);
+      break;
+    }
   }
 
+  for (var = 0; var < EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE; ++var) {
+    neighboringNodesRfTable[var].nodeShortId = EMBER_NULL_NODE_ID;
+  }
 }
 
-void refreshEui64TableEventHandler(void)
+void emberAfPluginRfNeighborMeterRefreshEui64TableEventHandler(void)
 {
-	neighboringNodeRfInfo_t n;
-	emberEventControlSetInactive(refreshEui64TableEventControl);
+  neighboringNodeRfInfo_t n;
+  emberEventControlSetInactive(emberAfPluginRfNeighborMeterRefreshEui64TableEventControl);
 
-	emberAfCorePrintln("Updating RF Entry %d", neighborEntryToRefresh);
+  emberAfCorePrintln("Updating RF Entry %d", neighborEntryToRefresh);
 
-	n = neighboringNodesRfTable[neighborEntryToRefresh];
-	if (n.nodeShortId != EMBER_NULL_NODE_ID) {
-		//Check if eui64 is empty
-		if(memcmp(n.nodeEUI, emberAfNullEui64, EUI64_SIZE) == 0)
-		{
-			emberAfCorePrintln("EUI not present, sending IEEE request !!");
-			emberIeeeAddressRequest(n.nodeShortId, true, 0, EMBER_APS_OPTION_ZDO_RESPONSE_REQUIRED);
-			emberAfCorePrintln("Requested EUI64 for 0x%2X", n.nodeShortId);
-		}
-	} else {
-		emberAfCorePrintln("Invalid RF Entry to Refresh");
-	}
+  n = neighboringNodesRfTable[neighborEntryToRefresh];
+  if (n.nodeShortId != EMBER_NULL_NODE_ID) {
+    //Check if eui64 is empty
+    if(memcmp(n.nodeEUI, emberAfNullEui64, EUI64_SIZE) == 0)
+    {
+      emberAfCorePrintln("EUI not present, sending IEEE request !!");
+      emberIeeeAddressRequest(n.nodeShortId, true, 0, EMBER_APS_OPTION_ZDO_RESPONSE_REQUIRED);
+      emberAfCorePrintln("Requested EUI64 for 0x%2X", n.nodeShortId);
+    }
+  } else {
+    emberAfCorePrintln("Invalid RF Entry to Refresh");
+  }
 
-	sendEntryUpdate(neighborEntryToRefresh);
+  sendEntryUpdate(neighborEntryToRefresh);
 }
 
 static uint8_t getNeighborRfEntryIndexByShortID(EmberNodeId sender)//Portage Metrics
 {
-	uint8_t var;
-	uint8_t returnValue = 0xFF;
+  uint8_t var;
+  uint8_t returnValue = 0xFF;
 
-	for (var = 0; var < NEGIGHBORING_RF_TABLE_SIZE; ++var) {
-		if(neighboringNodesRfTable[var].nodeShortId == sender)
-		{
-			returnValue = var;
-			break;
-		}
-	}
+  for (var = 0; var < EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE; ++var) {
+    if(neighboringNodesRfTable[var].nodeShortId == sender)
+    {
+      returnValue = var;
+      break;
+    }
+  }
 
-	return returnValue;
+  return returnValue;
 }
 
 static uint8_t getNeighborRfEntryIndexByEUI64(EmberEUI64 senderEui)//Portage Metrics
 {
-	uint8_t var;
-	uint8_t returnValue = 0xFF;
+  uint8_t var;
+  uint8_t returnValue = 0xFF;
 
-	for (var = 0; var < NEGIGHBORING_RF_TABLE_SIZE; ++var) {
-		if(memcmp(neighboringNodesRfTable[var].nodeEUI, senderEui, EUI64_SIZE) == 0)
-		{
-			returnValue = var;
-			break;
-		}
-	}
+  for (var = 0; var < EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE; ++var) {
+    if(memcmp(neighboringNodesRfTable[var].nodeEUI, senderEui, EUI64_SIZE) == 0)
+    {
+      returnValue = var;
+      break;
+    }
+  }
 
-	return returnValue;
+  return returnValue;
 }
-
 
 static uint8_t getNeighborRfEmptyEntryIndex(void)//Portage Metrics
 {
-	uint8_t var;
-	uint8_t returnValue = 0xFF;
+  uint8_t var;
+  uint8_t returnValue = 0xFF;
 
-	for (var = 0; var < NEGIGHBORING_RF_TABLE_SIZE; ++var) {
-		if(neighboringNodesRfTable[var].nodeShortId == EMBER_NULL_NODE_ID)
-		{
-			returnValue = var;
-			break;
-		}
-	}
+  for (var = 0; var < EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE; ++var) {
+    if(neighboringNodesRfTable[var].nodeShortId == EMBER_NULL_NODE_ID)
+    {
+      returnValue = var;
+      break;
+    }
+  }
 
-	return returnValue;
+  return returnValue;
 }
-
 
 void sendEntryResponse(EmberEUI64 eui)
 {
-	EmberNodeId destination;
-	EmberStatus status;
-	uint8_t entryIndex = 0xFF;
+  EmberNodeId destination;
+  EmberStatus status;
+  uint8_t entryIndex = 0xFF;
 
-	emberAfReadManufacturerSpecificServerAttribute(
-			LIGHT_ENDPOINT,
-			ZCL_RF_NEGHBORHOOD_DEBUG_CLUSTER_ID,
-			ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
-			0x1003,
-			(uint8_t *)(&destination),
-			2);
+  emberAfReadManufacturerSpecificServerAttribute(
+      endpointId,
+      ZCL_RF_NEIGHBOR_METER_CLUSTER_ID,
+      ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
+      0x1003,
+      (uint8_t *)(&destination),
+      2);
 
-	emberAfGetCommandApsFrame()->sourceEndpoint = LIGHT_ENDPOINT;
-	emberAfGetCommandApsFrame()->destinationEndpoint = LIGHT_ENDPOINT;
+  emberAfGetCommandApsFrame()->sourceEndpoint = endpointId;
+  emberAfGetCommandApsFrame()->destinationEndpoint = endpointId;
 
-	entryIndex = getNeighborRfEntryIndexByEUI64(eui);
-	if(entryIndex != 0xFF)
-	{
-		emberAfFillCommandRfNeghborhoodDebugClustergetEntryResponse(&neighboringNodesRfTable[entryIndex], sizeof(neighboringNodeRfInfo_t));
-		emberAfCorePrintln("sendEntryResponse found entry");
-	} else {
-		//TODO send ZCL error
-		//emberAfFillCommandGlobalServerToClientReadAttributesResponse()
-		emberAfCorePrintln("sendEntryResponse found no entry");
-	}
+  entryIndex = getNeighborRfEntryIndexByEUI64(eui);
+  if(entryIndex != 0xFF)
+  {
+    emberAfFillCommandRfNeighborMeterClustergetEntryResponse(&neighboringNodesRfTable[entryIndex], sizeof(neighboringNodeRfInfo_t));
+    emberAfCorePrintln("sendEntryResponse found entry");
+  } else {
+    //TODO send ZCL error
+    //emberAfFillCommandGlobalServerToClientReadAttributesResponse()
+    emberAfCorePrintln("sendEntryResponse found no entry");
+  }
 
-	status = emberAfSendCommandUnicast(EMBER_OUTGOING_DIRECT, destination);
-	emberAfCorePrintln("Sent entry command to : 0x%2X, status = 0x%X", (uint16_t)(destination), status);
+  status = emberAfSendCommandUnicast(EMBER_OUTGOING_DIRECT, destination);
+  emberAfCorePrintln("Sent entry command to : 0x%2X, status = 0x%X", (uint16_t)(destination), status);
 }
 
 void sendEntryUpdate(uint8_t entryIndex)
 {
-	EmberNodeId destination;
-	uint8_t updatesEnabled = 0;
-	EmberStatus status;
+  EmberNodeId destination;
+  uint8_t updatesEnabled = 0;
+  EmberStatus status;
 
-	emberAfReadManufacturerSpecificServerAttribute(
-			LIGHT_ENDPOINT,
-			ZCL_RF_NEGHBORHOOD_DEBUG_CLUSTER_ID,
-			ZCL_UPDATE_THRESHOLD_ATTRIBUTE_ID,
-			0x1003,
-			&updatesEnabled,
-			1);
+  emberAfReadManufacturerSpecificServerAttribute(
+      endpointId,
+      ZCL_RF_NEIGHBOR_METER_CLUSTER_ID,
+      ZCL_UPDATE_THRESHOLD_ATTRIBUTE_ID,
+      0x1003,
+      &updatesEnabled,
+      1);
 
-	if(updatesEnabled)
-	{
-		emberAfReadManufacturerSpecificServerAttribute(
-				LIGHT_ENDPOINT,
-				ZCL_RF_NEGHBORHOOD_DEBUG_CLUSTER_ID,
-				ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
-				0x1003,
-				(uint8_t *)(&destination),
-				2);
+  if(updatesEnabled)
+  {
+    emberAfReadManufacturerSpecificServerAttribute(
+        endpointId,
+        ZCL_RF_NEIGHBOR_METER_CLUSTER_ID,
+        ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
+        0x1003,
+        (uint8_t *)(&destination),
+        2);
 
-		emberAfGetCommandApsFrame()->sourceEndpoint = LIGHT_ENDPOINT;
-		emberAfGetCommandApsFrame()->destinationEndpoint = LIGHT_ENDPOINT;
+    emberAfGetCommandApsFrame()->sourceEndpoint = endpointId;
+    emberAfGetCommandApsFrame()->destinationEndpoint = endpointId;
 
-		if(entryIndex != 0xFF)
-		{
-			emberAfFillCommandRfNeghborhoodDebugClusterentryUpdate(&neighboringNodesRfTable[entryIndex], sizeof(neighboringNodeRfInfo_t));
-			emberAfCorePrintln("sendEntryUpdate found entry");
-			status = emberAfSendCommandUnicast(EMBER_OUTGOING_DIRECT, destination);
-			emberAfCorePrintln("Sent entry command to : 0x%2X, status = 0x%X", (uint16_t)(destination), status);
-		} else {
-			emberAfCorePrintln("sendEntryUpdate found no entry");
-		}
-	} else {
-		emberAfCorePrintln("Updates are disabled, write the cmd attribute to enable it");
-	}
+    if(entryIndex != 0xFF)
+    {
+    	emberAfFillCommandRfNeighborMeterClusterentryUpdate(&neighboringNodesRfTable[entryIndex], sizeof(neighboringNodeRfInfo_t));
+      emberAfCorePrintln("sendEntryUpdate found entry");
+      status = emberAfSendCommandUnicast(EMBER_OUTGOING_DIRECT, destination);
+      emberAfCorePrintln("Sent entry command to : 0x%2X, status = 0x%X", (uint16_t)(destination), status);
+    } else {
+      emberAfCorePrintln("sendEntryUpdate found no entry");
+    }
+  } else {
+    emberAfCorePrintln("Updates are disabled, write the cmd attribute to enable it");
+  }
 }
 
 ////////////////////////////////////////////////////////////////
@@ -208,64 +223,48 @@ EmberPacketAction emberAfIncomingPacketFilterCallback(EmberZigbeePacketType pack
   EmberNodeId sender = emCurrentSender;// emberGetSender();//emCurrentSender;
   //uint32_t i = 0;
 
+  //We only use ZDO packets as metering packets, but can be optimized
+  //We should not use our own loopback packets
+  //But we also need access to the IEEE Address responses if EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TRACK_EUI64
+  // TODO add EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TRACK_EUI64 in this filter
   if ((EMBER_ZIGBEE_PACKET_TYPE_ZDO != packetType)//Early return the packet if not a ZDO one
       ||(sender == emberGetNodeId()))//Early return the packet has been sent by us
   {
-      return EMBER_ACCEPT_PACKET;
+      return emberAfPluginRfNeighborTableIncomingPacketFilterCallback(packetType, packetData, size_p, data); //Always let the stack do the job for handling ZDO commands;
   }
 
   pApsStruct = (EmberApsFrame *)data;
-  switch (pApsStruct->clusterId) {
-    case LEAVE_REQUEST:
-      emberAfCorePrintln("ZDO leave request received");
-      emberEventControlSetActive(scheduleSteeringEventControl);
-      break;
-    case PERMIT_JOINING_REQUEST:
-      emberAfCorePrintln("ZDO permit joining request received");
-      //We do not send the permit join request manually, stack will do it
-      //We just parse the payload to handle proprietary behavior
-      if(packetData[1]){//permit joining time
-          emberAfCorePrintln("Network Opened by peer");
-      } else {
-          emberAfCorePrintln("Network Closed by peer");
-      }
-      break;
-    default:
-      emberAfCorePrintln("Unhandled by App ZDO request received");
-      break;
-  }
 
-  //TODO Add packet filtering
   if (sender != EMBER_NULL_NODE_ID) {//Portage Metrics
     uint8_t entryIndex = getNeighborRfEntryIndexByShortID(sender);
     if (entryIndex == 0xFF) {
-    	//No entry exists for this node, we query some new
-    	entryIndex = getNeighborRfEmptyEntryIndex();
-    	//If we have space left
-    	if (entryIndex != 0xFF)
-    		neighboringNodesRfTable[entryIndex].nodeShortId = sender;
-    	//TODO cleanup this piece of code maybe using a counter instead
+      //No entry exists for this node, we query some new
+      entryIndex = getNeighborRfEmptyEntryIndex();
+      //If we have space left
+      if (entryIndex != 0xFF)
+        neighboringNodesRfTable[entryIndex].nodeShortId = sender;
+      //TODO cleanup this piece of code maybe using a counter instead
     }
 
     if (entryIndex != 0xFF) {
-    	emberGetLastHopLqi(&(neighboringNodesRfTable[entryIndex].lastPacketLQI));
-    	emberGetLastHopRssi(&(neighboringNodesRfTable[entryIndex].lastPacketRssi));
-#if(NEGIGHBORING_RF_TABLE_TRACK_EUI)
-    	if ( (pApsStruct->clusterId) == IEEE_ADDRESS_RESPONSE ) {
-    		memcpy(&(neighboringNodesRfTable[entryIndex].nodeEUI), &packetData[2], EUI64_SIZE);
-    		emberAfCorePrintln("EUI Received !!");
-    	}
+      emberGetLastHopLqi(&(neighboringNodesRfTable[entryIndex].lastPacketLQI));
+      emberGetLastHopRssi(&(neighboringNodesRfTable[entryIndex].lastPacketRssi));
+#if defined(EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TRACK_EUI64)
+      if ( (pApsStruct->clusterId) == IEEE_ADDRESS_RESPONSE ) {
+        memcpy(&(neighboringNodesRfTable[entryIndex].nodeEUI), &packetData[2], EUI64_SIZE);
+        emberAfCorePrintln("EUI Received !!");
+      }
 #endif
-    	neighborEntryToRefresh = entryIndex;
-    	emberEventControlSetActive(refreshEui64TableEventControl);
+      neighborEntryToRefresh = entryIndex;
+      emberEventControlSetActive(emberAfPluginRfNeighborMeterRefreshEui64TableEventControl);
     } else {
-    	emberAfCorePrintln("No more space left in RF neighbor table");
+      emberAfCorePrintln("No more space left in RF neighbor table");
     }
   } else {
-	  emberAfCorePrintln("RF neighbor ignored");
+    emberAfCorePrintln("RF neighbor ignored");
   }
 
-  return EMBER_ACCEPT_PACKET; //Always let the stack do the job for handling ZDO commands
+  return emberAfPluginRfNeighborTableIncomingPacketFilterCallback(packetType, packetData, size_p, data); //Always let the stack do the job for handling ZDO commands
 }
 
 /** @brief RF Neighbors Debug Cluster Get All Entries
@@ -273,9 +272,9 @@ EmberPacketAction emberAfIncomingPacketFilterCallback(EmberZigbeePacketType pack
  *
  *
  */
-boolean emberAfRfNeghborhoodDebugClusterGetAllEntriesCallback(void)
+boolean emberAfRfNeighborMeterClusterGetAllEntriesCallback(void)
 {
-	return false;
+  return false;
 }
 
 /** @brief RF Neighbors Debug Cluster Get Entry
@@ -284,19 +283,19 @@ boolean emberAfRfNeghborhoodDebugClusterGetAllEntriesCallback(void)
  *
  * @param argOne   Ver.: always
  */
-boolean emberAfRfNeghborhoodDebugClusterGetEntryCallback(int8u* neighborEui)
+boolean emberAfRfNeighborMeterClusterGetEntryCallback(int8u* neighborEui)
 {
-	EmberEUI64 queriedEui;
+  EmberEUI64 queriedEui;
 
-	memcpy(queriedEui, neighborEui, EUI64_SIZE);
+  memcpy(queriedEui, neighborEui, EUI64_SIZE);
 
-	emberAfCorePrint("Get entry command received for :");
-    emberAfAppDebugExec(emberAfPrintBigEndianEui64(neighborEui));
-    emberAfCorePrintln("");
+  emberAfCorePrint("Get entry command received for :");
+  emberAfAppDebugExec(emberAfPrintBigEndianEui64(neighborEui));
+  emberAfCorePrintln("");
 
-	sendEntryResponse(queriedEui);
+  sendEntryResponse(queriedEui);
 
-	return true;
+  return true;
 }
 
 /** @brief RF Neighbors Debug Cluster Set Remote Short Id
@@ -305,18 +304,18 @@ boolean emberAfRfNeghborhoodDebugClusterGetEntryCallback(int8u* neighborEui)
  *
  * @param argOne   Ver.: always
  */
-boolean emberAfRfNeghborhoodDebugClusterSetRemoteShortIdCallback(int16u argOne)
+boolean emberAfRfNeighborMeterClusterSetRemoteShortIdCallback(int16u argOne)
 {
-	//write the new destination into the attribute
-	  EmberStatus status;
-	  status =
-	    emberAfWriteManufacturerSpecificServerAttribute(LIGHT_ENDPOINT,
-	    												ZCL_RF_NEGHBORHOOD_DEBUG_CLUSTER_ID,
-														ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
-	                                                    0x1003,
-	                                                    (uint8_t *) &argOne,
-	                                                    ZCL_INT16U_ATTRIBUTE_TYPE);
+  //write the new destination into the attribute
+    EmberStatus status;
+    status =
+      emberAfWriteManufacturerSpecificServerAttribute(endpointId,
+                              ZCL_RF_NEIGHBOR_METER_CLUSTER_ID,
+                            ZCL_DESTINATION_SHORT_ID_ATTRIBUTE_ID,
+                                                      0x1003,
+                                                      (uint8_t *) &argOne,
+                                                      ZCL_INT16U_ATTRIBUTE_TYPE);
 
-	emberAfCorePrintln("New destination address set : 0x%2X, status = 0x%X", argOne, status);
-	return true;
+  emberAfCorePrintln("New destination address set : 0x%2X, status = 0x%X", argOne, status);
+  return true;
 }

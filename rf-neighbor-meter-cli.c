@@ -8,9 +8,13 @@
 // -----------------------------------------------------------------------------
 // Helper macros and functions
 
+#include "app/framework/include/af.h"
+
 #include "rf-neighbor-meter.h"
 
-void printRfNeighborTable(void)
+extern neighboringNodeRfInfo_t neighboringNodesRfTable[EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE];//Portage Metrics
+
+void emberAfPluginRfNeighborTablePrint(void)
 {
   uint8_t used = 0;
   uint8_t i;
@@ -18,7 +22,7 @@ void printRfNeighborTable(void)
 
   emberAfAppPrintln("\n#  id     latest lqi     latest rssi " "  eui");
 
-  for (i = 0; i < NEGIGHBORING_RF_TABLE_SIZE; i++) {
+  for (i = 0; i < EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE; i++) {
     n = neighboringNodesRfTable[i];
     if (n.nodeShortId == EMBER_NULL_NODE_ID) {
       continue;//Leave the entry
@@ -39,5 +43,5 @@ void printRfNeighborTable(void)
     emberAfAppFlush();
   }
 
-  emberAfAppPrintln("\n%d of %d entries used.", used, NEGIGHBORING_RF_TABLE_SIZE);
+  emberAfAppPrintln("\n%d of %d entries used.", used, EMBER_AF_PLUGIN_RF_NEIGHBOR_METER_TABLE_SIZE);
 }
